@@ -7,6 +7,7 @@ import AnalysisPanel from "./components/AnalysisPanel";
 import CategoryTable from "./components/CategoryTable";
 import { useCategoryEditModal } from "./useCategoryEditModal";
 import TableCreationModal from "./components/TableCreationModal";
+import AdminPasscodeModal from "./components/AdminPasscodeModal";
 import LoadingOverlay from "./components/LoadingOverlay";
 
 
@@ -20,6 +21,9 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [minLoading, setMinLoading] = useState(true);
   const [createModal, setCreateModal] = useState(false);
+  const [passcodeModal, setPasscodeModal] = useState(true);
+  const [passcodeError, setPasscodeError] = useState<string | undefined>(undefined);
+  const [authenticating, setAuthenticating] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [deleteType, setDeleteType] = useState<'category' | 'item'>('item');
   const [deleteData, setDeleteData] = useState<any>(null);
@@ -257,8 +261,36 @@ function App() {
     setShowSafetyTips(false);
   };
 
+  // Simple passcode verification using environment variable
+  const handlePasscodeSubmit = async (input: string) => {
+    setAuthenticating(true);
+    setPasscodeError(undefined);
+    
+    try {
+      // Check against environment variable
+      const correctPasscode = process.env.REACT_APP_ADMIN_PASSCODE || '0123';
+      
+      if (input === correctPasscode) {
+        setPasscodeModal(false);
+      } else {
+        setPasscodeError("Incorrect passcode. Try again.");
+      }
+    } catch (e) { 
+      setPasscodeError("Error verifying passcode.");
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
   return (
     <>
+      <AdminPasscodeModal
+        visible={passcodeModal}
+        onSubmit={handlePasscodeSubmit}
+        error={passcodeError}
+        loading={authenticating}
+      />
+      {!passcodeModal && (
         <Layout style={{ minHeight: "100vh", background: '#f3f4f6' }}>
           <Header style={{ background: '#111', padding: 0, boxShadow: '0 2px 12px #e0e7ef', minHeight: 120, zIndex: 2 }}>
             <div style={{
@@ -917,6 +949,7 @@ function App() {
             </div>
           )}
         </Layout>
+      )}
     </>
   );
 }
