@@ -292,25 +292,46 @@ function App() {
       />
       {!passcodeModal && (
         <Layout style={{ minHeight: "100vh", background: '#f3f4f6' }}>
-          <Header style={{ background: '#111', padding: 0, boxShadow: '0 2px 12px #e0e7ef', minHeight: 120, zIndex: 2 }}>
-            <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
+          <Header style={{ background: '#000000ff', padding: 0, boxShadow: '0 2px 12px #e0e7ef', minHeight: 200, zIndex: 2 }}>
+                        <div style={{
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
               justifyContent: 'center',
-              minHeight: 120,
-              padding: '10px 0 8px 0',
+              minHeight: 200,
+              padding: '32px 0 32px 0',
             }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 8
+              }}>
+                <img 
+                  src="/clyft-logo.jpg" 
+                  alt="Clyft Logo" 
+                  style={{
+                    height: 80,
+                    width: 'auto',
+                    maxWidth: 200,
+                    borderRadius: 8,
+                    boxShadow: '0 0px 0px rgba(255, 255, 255, 0.2)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    padding: 0,
+                    border: '0px solid rgba(255, 255, 255, 0.1)',
+                    objectFit: 'contain'
+                  }}
+                  onError={(e) => {
+                    console.log('Logo failed to load');
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  onLoad={(e) => {
+                    console.log('Logo loaded successfully');
+                  }}
+                />
+              </div>
               <span style={{
-                fontSize: 44,
-                fontWeight: 900,
-                letterSpacing: 2,
-                color: '#fff',
-                textShadow: '0 2px 16px #000, 0 1px 0 #222',
-                marginBottom: 0,
-                fontFamily: 'Montserrat, Inter, Arial, sans-serif',
-                textTransform: 'uppercase',
-              }}>Clyft</span>
-              <span style={{
-                fontSize: 20,
+                fontSize: 22  ,
                 color: '#fff',
                 fontWeight: 500,
                 letterSpacing: 1,
@@ -319,7 +340,8 @@ function App() {
                 marginTop: 0,
                 marginBottom: 0,
                 position: 'relative',
-                top: '0',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
               }}>
                 Catalogue Admin Panel
               </span>
