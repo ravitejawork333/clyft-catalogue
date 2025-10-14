@@ -116,8 +116,14 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
       }
       
       // Filter out undefined and empty string values to prevent Firestore errors
+      // Keep numeric 0 values
       const cleanValues = Object.fromEntries(
         Object.entries(values).filter(([_, value]) => {
+          if (typeof value === 'number') {
+            // Keep all numbers including 0
+            return true;
+          }
+          // For non-numbers, filter out undefined, null, and empty strings
           return value !== undefined && value !== null && value !== '';
         })
       );
@@ -129,10 +135,22 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
         }
       }
       
+      // Process variants to ensure all numeric fields are included, even if they are 0
+      const processedVariants = variants.map(variant => ({
+        ...variant,
+        priceTiers: variant.priceTiers.map((tier: any) => ({
+          min: tier.min || 0,
+          max: tier.max || 0,
+          price: tier.price || 0,
+          deliveryFee: tier.deliveryFee === 0 ? 0 : tier.deliveryFee || 0,
+          loadingUnloadingFee: tier.loadingUnloadingFee === 0 ? 0 : tier.loadingUnloadingFee || 0
+        }))
+      }));
+
       const itemData: any = {
         ...cleanValues,
         variantTypes: localVariantTypes,
-        variants,
+        variants: processedVariants,
         // Ensure categoryName is always present
         categoryName: categoryName || cleanValues.categoryName,
         // Ensure visible has a default value
@@ -336,6 +354,32 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
             initialValue={true}
           >
             <Switch checkedChildren="Yes" unCheckedChildren="No" />
+          </Form.Item>
+
+          <Form.Item 
+            name="isBestSeller" 
+            label={<b>Best Seller</b>} 
+            valuePropName="checked"
+            initialValue={false}
+          >
+            <Switch 
+              checkedChildren="Yes" 
+              unCheckedChildren="No"
+              style={{ backgroundColor: '#f43f5e' }}
+            />
+          </Form.Item>
+
+          <Form.Item 
+            name="isFlashSale" 
+            label={<b>Flash Sale</b>} 
+            valuePropName="checked"
+            initialValue={false}
+          >
+            <Switch 
+              checkedChildren="Yes" 
+              unCheckedChildren="No"
+              style={{ backgroundColor: '#eab308' }}
+            />
           </Form.Item>
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
