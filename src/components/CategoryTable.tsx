@@ -132,9 +132,9 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
           <thead>
             <tr style={{ background: '#f3f4f6' }}>
               <th style={thStyle}>Name</th>
-              {Array.from({ length: items[0]?.variantTypes || 0 }).map((_, idx) => (
-                <th key={idx} style={thStyle}>{`Variant ${idx + 1}`}</th>
-              ))}
+              {items.some(item => item.variantTypes > 0) && (
+                <th style={thStyle}>Variants</th>
+              )}
               {items[0]?.variantTypes === 0 && (
                 <th style={thStyle}>Price</th>
               )}
@@ -145,7 +145,7 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={3 + (items[0]?.variantTypes || 0) + (items[0]?.variantTypes === 0 ? 1 : 0)} style={{ textAlign: 'center', padding: 10, color: '#64748b' }}>No items yet</td>
+                <td colSpan={4 + (items.some(item => item.variantTypes > 0) ? 0 : 0)} style={{ textAlign: 'center', padding: 10, color: '#64748b' }}>No items yet</td>
               </tr>
             ) : (
               items.map(item => (
@@ -156,9 +156,28 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
                     )}
                     <span style={{ verticalAlign: 'middle' }}>{item.name}</span>
                   </td>
-                  {Array.from({ length: item.variantTypes }).map((_, idx) => (
-                    <td key={idx} style={tdStyle}>{item[`variant${idx + 1}Name`] || ''}</td>
-                  ))}
+                  {item.variantTypes > 0 && (
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {Array.from({ length: item.variantTypes }).map((_, idx) => {
+                          const variantName = item[`variant${idx + 1}Name`];
+                          return variantName ? (
+                            <span key={idx} style={{ 
+                              fontSize: 13, 
+                              color: '#6366f1', 
+                              fontWeight: 500,
+                              padding: '2px 6px',
+                              background: '#f0f9ff',
+                              borderRadius: 4,
+                              border: '1px solid #e0e7ff'
+                            }}>
+                              {variantName}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    </td>
+                  )}
                   {item.variantTypes === 0 && (
                     <td style={tdStyle}>
                       <span style={{ color: '#059669', fontWeight: 600 }}>

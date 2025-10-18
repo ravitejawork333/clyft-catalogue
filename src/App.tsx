@@ -163,28 +163,29 @@ function App() {
       }
       
       if (result.success) {
+        // Close the delete confirmation first
+        setShowDeleteConfirmation(false);
+        setDeleteData(null);
+        
         // Show success message
         Modal.success({
           title: 'Success',
           content: result.message,
           okText: 'OK',
-          centered: true,
-          onOk: () => {
-            setShowDeleteConfirmation(false);
-            setDeleteData(null);
-          }
+          centered: true
         });
       }
     } catch (error) {
       console.error('Error deleting:', error);
+      
+      // Close the delete confirmation first
+      setShowDeleteConfirmation(false);
+      setDeleteData(null);
+      
       Modal.error({
         title: 'Error',
         content: `Failed to delete ${deleteType}. Please try again.`,
-        centered: true,
-        onOk: () => {
-          setShowDeleteConfirmation(false);
-          setDeleteData(null);
-        }
+        centered: true
       });
     } finally {
       setDeleting(false);

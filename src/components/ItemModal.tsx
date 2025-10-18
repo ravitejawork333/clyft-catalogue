@@ -74,7 +74,26 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
   const handleAddPriceTier = (comboIdx: number) => {
     const newVariants = [...variants];
     if (!newVariants[comboIdx].priceTiers) newVariants[comboIdx].priceTiers = [];
-    newVariants[comboIdx].priceTiers.push({ min: 1, max: 1, price: 0 });
+    
+    // Calculate the next min value based on existing tiers
+    const existingTiers = newVariants[comboIdx].priceTiers;
+    let nextMin = 1;
+    
+    if (existingTiers.length > 0) {
+      // Find the highest max value and set min to max + 1
+      const maxValues = existingTiers.map((tier: any) => tier.max || 1);
+      const highestMax = Math.max(...maxValues);
+      nextMin = highestMax + 1;
+    }
+    
+    newVariants[comboIdx].priceTiers.push({ 
+      min: nextMin, 
+      max: nextMin, 
+      price: 0,
+      marketPrice: 0,
+      deliveryFee: 0,
+      loadingUnloadingFee: 0
+    });
     setVariants(newVariants);
   };
 
@@ -89,6 +108,23 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
   const handlePriceTierChange = (comboIdx: number, tierIdx: number, key: string, value: number) => {
     const newVariants = [...variants];
     newVariants[comboIdx].priceTiers[tierIdx][key] = value;
+    
+    // If max quantity is changed, update the next tier's min quantity
+    if (key === 'max' && tierIdx < newVariants[comboIdx].priceTiers.length - 1) {
+      const nextTierIdx = tierIdx + 1;
+      newVariants[comboIdx].priceTiers[nextTierIdx].min = value + 1;
+      
+      // If the next tier's max is less than its new min, update it too
+      if (newVariants[comboIdx].priceTiers[nextTierIdx].max < value + 1) {
+        newVariants[comboIdx].priceTiers[nextTierIdx].max = value + 1;
+      }
+    }
+    
+    // If min quantity is changed and it's greater than max, update max
+    if (key === 'min' && value > newVariants[comboIdx].priceTiers[tierIdx].max) {
+      newVariants[comboIdx].priceTiers[tierIdx].max = value;
+    }
+    
     setVariants(newVariants);
   };
 
@@ -142,6 +178,7 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
           min: tier.min || 0,
           max: tier.max || 0,
           price: tier.price || 0,
+          marketPrice: tier.marketPrice === 0 ? 0 : tier.marketPrice || 0,
           deliveryFee: tier.deliveryFee === 0 ? 0 : tier.deliveryFee || 0,
           loadingUnloadingFee: tier.loadingUnloadingFee === 0 ? 0 : tier.loadingUnloadingFee || 0
         }))
@@ -159,13 +196,17 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
 
       // Handle price field based on variant types
       if (localVariantTypes === 0) {
-        // Include price for items with no variants
+        // Include price and marketPrice for items with no variants
         if (cleanValues.price !== undefined && cleanValues.price !== null) {
           itemData.price = cleanValues.price;
         }
+        if (cleanValues.marketPrice !== undefined && cleanValues.marketPrice !== null) {
+          itemData.marketPrice = cleanValues.marketPrice;
+        }
       } else {
-        // Remove price field for items with variants (variants have their own pricing)
+        // Remove price and marketPrice fields for items with variants (variants have their own pricing)
         delete itemData.price;
+        delete itemData.marketPrice;
       }
       
       // Only add id if we're editing an existing item (not creating new)
@@ -435,33 +476,62 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
             />
           </Form.Item>
           {localVariantTypes === 0 && (
-            <Form.Item 
-              name="price" 
-              label={<b>Price</b>} 
-              rules={[
-                { required: true, message: 'Please enter price!' },
-                { type: 'number', min: 0.01, message: 'Price must be greater than 0!' }
-              ]}
-              hasFeedback
-            >
-              <InputNumber 
-                min={0.01}
-                step={0.01}
-                precision={2}
-                placeholder="0.00" 
-                style={{
-                  width: '100%',
-                  border: '1.5px solid #c7d2fe',
-                  borderRadius: 8,
-                  background: '#f8fafc',
-                  fontWeight: 600,
-                  fontSize: 16,
-                  boxShadow: '0 1px 4px #e0e7ef',
-                }} 
-                formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value: any) => parseFloat(value?.replace(/₹\s?|(,*)/g, '') || '0')}
-              />
-            </Form.Item>
+            <>
+              <Form.Item 
+                name="price" 
+                label={<b>Price</b>} 
+                rules={[
+                  { required: true, message: 'Please enter price!' },
+                  { type: 'number', min: 0.01, message: 'Price must be greater than 0!' }
+                ]}
+                hasFeedback
+              >
+                <InputNumber 
+                  min={0.01}
+                  step={0.01}
+                  precision={2}
+                  placeholder="0.00" 
+                  style={{
+                    width: '100%',
+                    border: '1.5px solid #c7d2fe',
+                    borderRadius: 8,
+                    background: '#f8fafc',
+                    fontWeight: 600,
+                    fontSize: 16,
+                    boxShadow: '0 1px 4px #e0e7ef',
+                  }} 
+                  formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value: any) => parseFloat(value?.replace(/₹\s?|(,*)/g, '') || '0')}
+                />
+              </Form.Item>
+              <Form.Item 
+                name="marketPrice" 
+                label={<b>Market Price</b>} 
+                rules={[
+                  { required: true, message: 'Please enter market price!' },
+                  { type: 'number', min: 1, message: 'Market price must be at least 1!' }
+                ]}
+                hasFeedback
+              >
+                <InputNumber 
+                  min={1}
+                  step={1}
+                  precision={0}
+                  placeholder="Enter market price" 
+                  style={{
+                    width: '100%',
+                    border: '1.5px solid #c7d2fe',
+                    borderRadius: 8,
+                    background: '#f8fafc',
+                    fontWeight: 600,
+                    fontSize: 16,
+                    boxShadow: '0 1px 4px #e0e7ef',
+                  }} 
+                  formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value: any) => parseInt(value?.replace(/₹\s?|(,*)/g, '') || '0')}
+                />
+              </Form.Item>
+            </>
           )}
           <Form.Item name="vendor" label={<b>Vendor</b>}>
             <Input 
@@ -541,26 +611,128 @@ export const ItemFormModal: React.FC<Props> = ({ visible, onCancel, onSave, init
                   Add Price Tier
                 </Button>
                 {/* Price Tier Headings for this variant */}
-                <div style={{ display: 'flex', gap: 12, margin: '10px 0 6px 0', fontWeight: 500, color: '#6366f1', fontSize: 15, opacity: 0.85 }}>
-                  <div style={{ width: 80 }}>Min Qty</div>
-                  <div style={{ width: 80 }}>Max Qty</div>
-                  <div style={{ width: 100 }}>Price</div>
-                  <div style={{ width: 110 }}>Delivery Fee</div>
-                  <div style={{ width: 150 }}>Loading/Unloading Fee</div>
+                <div style={{ display: 'flex', gap: 8, margin: '10px 0 6px 0', fontWeight: 500, color: '#6366f1', fontSize: 14, opacity: 0.85, paddingLeft: 0 }}>
+                  <div style={{ width: 75, textAlign: 'center', paddingLeft: 0 }}>Min Qty</div>
+                  <div style={{ width: 75, textAlign: 'center' }}>Max Qty</div>
+                  <div style={{ width: 85, textAlign: 'center' }}>Price</div>
+                  <div style={{ width: 95, textAlign: 'center' }}>Market Price</div>
+                  <div style={{ width: 95, textAlign: 'center' }}>Delivery Fee</div>
+                  <div style={{ width: 130, textAlign: 'center' }}>Loading/Unloading</div>
+                  <div style={{ width: 40 }}></div>
                 </div>
                 <div style={{ marginTop: 0 }}>
-                  {variant.priceTiers && variant.priceTiers.length > 0 ? variant.priceTiers.map((tier: any, tIdx: number) => (
-                    <Space key={tIdx} style={{ marginBottom: 4 }}>
-                      <InputNumber min={1} value={tier.min} onChange={v => handlePriceTierChange(vIdx, tIdx, 'min', Number(v))} placeholder="Min Qty" style={{ width: 80, border: '1.5px solid #c7d2fe', borderRadius: 8, background: '#f8fafc', fontWeight: 500, fontSize: 15, boxShadow: '0 1px 4px #e0e7ef' }} />
-                      <InputNumber min={tier.min || 1} value={tier.max} onChange={v => handlePriceTierChange(vIdx, tIdx, 'max', Number(v))} placeholder="Max Qty" style={{ width: 80, border: '1.5px solid #c7d2fe', borderRadius: 8, background: '#f8fafc', fontWeight: 500, fontSize: 15, boxShadow: '0 1px 4px #e0e7ef' }} />
-                      <InputNumber min={0} value={tier.price} onChange={v => handlePriceTierChange(vIdx, tIdx, 'price', Number(v))} placeholder="Price" style={{ width: 100, border: '1.5px solid #c7d2fe', borderRadius: 8, background: '#f8fafc', fontWeight: 500, fontSize: 15, boxShadow: '0 1px 4px #e0e7ef' }} />
-                       <InputNumber min={0} value={tier.deliveryFee || 0} onChange={v => handlePriceTierChange(vIdx, tIdx, 'deliveryFee', Number(v))} placeholder="Delivery Fee" style={{ width: 110, border: '1.5px solid #c7d2fe', borderRadius: 8, background: '#f8fafc', fontWeight: 500, fontSize: 15, boxShadow: '0 1px 4px #e0e7ef' }} />
-                       <InputNumber min={0} value={tier.loadingUnloadingFee || 0} onChange={v => handlePriceTierChange(vIdx, tIdx, 'loadingUnloadingFee', Number(v))} placeholder="Loading/Unloading Fee" style={{ width: 150, border: '1.5px solid #c7d2fe', borderRadius: 8, background: '#f8fafc', fontWeight: 500, fontSize: 15, boxShadow: '0 1px 4px #e0e7ef' }} />
+                  {variant.priceTiers && variant.priceTiers.length > 0 ? variant.priceTiers.map((tier: any, tIdx: number) => {
+                    // Calculate min constraint for this tier's min value
+                    const prevTierMax = tIdx > 0 ? variant.priceTiers[tIdx - 1]?.max || 0 : 0;
+                    const minConstraint = tIdx === 0 ? 1 : prevTierMax + 1;
+                    
+                    return (
+                    <div key={tIdx} style={{ display: 'flex', gap: 8, marginBottom: 4, alignItems: 'center' }}>
+                      <InputNumber 
+                        min={minConstraint} 
+                        value={tier.min} 
+                        onChange={v => handlePriceTierChange(vIdx, tIdx, 'min', Number(v))} 
+                        placeholder="Min" 
+                        disabled={tIdx > 0} // Disable editing for non-first tiers as they auto-update
+                        style={{ 
+                          width: 75, 
+                          border: '1.5px solid #c7d2fe', 
+                          borderRadius: 8, 
+                          background: tIdx > 0 ? '#f1f5f9' : '#f8fafc', 
+                          fontWeight: 500, 
+                          fontSize: 14, 
+                          boxShadow: '0 1px 4px #e0e7ef' 
+                        }} 
+                      />
+                      <InputNumber 
+                        min={tier.min || 1} 
+                        value={tier.max} 
+                        onChange={v => handlePriceTierChange(vIdx, tIdx, 'max', Number(v))} 
+                        placeholder="Max" 
+                        style={{ 
+                          width: 75, 
+                          border: '1.5px solid #c7d2fe', 
+                          borderRadius: 8, 
+                          background: '#f8fafc', 
+                          fontWeight: 500, 
+                          fontSize: 14, 
+                          boxShadow: '0 1px 4px #e0e7ef' 
+                        }} 
+                      />
+                      <InputNumber 
+                        min={0} 
+                        step={0.01}
+                        precision={2}
+                        value={tier.price} 
+                        onChange={v => handlePriceTierChange(vIdx, tIdx, 'price', Number(v))} 
+                        placeholder="Price" 
+                        style={{ 
+                          width: 85, 
+                          border: '1.5px solid #c7d2fe', 
+                          borderRadius: 8, 
+                          background: '#f8fafc', 
+                          fontWeight: 500, 
+                          fontSize: 14, 
+                          boxShadow: '0 1px 4px #e0e7ef' 
+                        }} 
+                      />
+                      <InputNumber 
+                        min={1} 
+                        step={1}
+                        precision={0}
+                        value={tier.marketPrice || 0} 
+                        onChange={v => handlePriceTierChange(vIdx, tIdx, 'marketPrice', Number(v))} 
+                        placeholder="Market" 
+                        style={{ 
+                          width: 95, 
+                          border: '1.5px solid #c7d2fe', 
+                          borderRadius: 8, 
+                          background: '#f8fafc', 
+                          fontWeight: 500, 
+                          fontSize: 14, 
+                          boxShadow: '0 1px 4px #e0e7ef' 
+                        }} 
+                      />
+                      <InputNumber 
+                        min={0} 
+                        step={0.01}
+                        precision={2}
+                        value={tier.deliveryFee || 0} 
+                        onChange={v => handlePriceTierChange(vIdx, tIdx, 'deliveryFee', Number(v))} 
+                        placeholder="Delivery" 
+                        style={{ 
+                          width: 95, 
+                          border: '1.5px solid #c7d2fe', 
+                          borderRadius: 8, 
+                          background: '#f8fafc', 
+                          fontWeight: 500, 
+                          fontSize: 14, 
+                          boxShadow: '0 1px 4px #e0e7ef' 
+                        }} 
+                      />
+                      <InputNumber 
+                        min={0} 
+                        step={0.01}
+                        precision={2}
+                        value={tier.loadingUnloadingFee || 0} 
+                        onChange={v => handlePriceTierChange(vIdx, tIdx, 'loadingUnloadingFee', Number(v))} 
+                        placeholder="Loading" 
+                        style={{ 
+                          width: 130, 
+                          border: '1.5px solid #c7d2fe', 
+                          borderRadius: 8, 
+                          background: '#f8fafc', 
+                          fontWeight: 500, 
+                          fontSize: 14, 
+                          boxShadow: '0 1px 4px #e0e7ef' 
+                        }} 
+                      />
                       <Tooltip title="Remove Tier">
-                        <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleRemovePriceTier(vIdx, tIdx)} />
+                        <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleRemovePriceTier(vIdx, tIdx)} style={{ width: 40 }} />
                       </Tooltip>
-                    </Space>
-                  )) : <span style={{ color: '#64748b', marginLeft: 8 }}>No price tiers yet.</span>}
+                    </div>
+                    )
+                  }) : <span style={{ color: '#64748b', marginLeft: 8 }}>No price tiers yet.</span>}
                 </div>
               </div>
             </div>
