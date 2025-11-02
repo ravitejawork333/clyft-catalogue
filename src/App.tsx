@@ -945,6 +945,46 @@ function App() {
                     </ul>
                   </div>
 
+                  {/* Supplier Price Management */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(167, 139, 250, 0.05) 100%)',
+                    border: '1px solid rgba(139, 92, 246, 0.1)',
+                    borderRadius: 12,
+                    padding: 20
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 12
+                    }}>
+                      <span style={{ fontSize: 20 }}>👥</span>
+                      <h3 style={{
+                        fontSize: 18,
+                        fontWeight: 600,
+                        color: '#7c3aed',
+                        margin: 0
+                      }}>
+                        Supplier Price Management
+                      </h3>
+                    </div>
+                    <ul style={{
+                      fontSize: 14,
+                      color: '#374151',
+                      lineHeight: 1.6,
+                      margin: 0,
+                      paddingLeft: 20
+                    }}>
+                      <li><strong>Compare prices from multiple suppliers</strong> before assignment</li>
+                      <li>Track supplier price updates to find the best deals</li>
+                      <li>Monitor analytics to see active suppliers and assignment status</li>
+                      <li>Review last updated time to ensure current pricing information</li>
+                      <li>Only one supplier can be assigned per item at a time</li>
+                      <li>Unassigned items appear in red in the analytics dashboard</li>
+                      <li>Use filters to quickly find specific suppliers and sort by price</li>
+                    </ul>
+                  </div>
+
                 </div>
 
                 {/* Footer */}
