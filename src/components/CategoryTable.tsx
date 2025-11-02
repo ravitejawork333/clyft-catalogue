@@ -1,6 +1,7 @@
 // components/CategoryTable.tsx
 import React, { useState } from 'react';
 import { ItemFormModal } from './ItemModal';
+import SupplierPricePopup from './SupplierPricePopup';
 
 interface CategoryTableProps {
   category: any;
@@ -9,6 +10,7 @@ interface CategoryTableProps {
   onDeleteCategory?: (categoryId: string, categoryName: string) => void;
   onDeleteItem?: (itemId: string, itemName: string, categoryId: string) => void;
   onEditCategory?: (cat: any) => void;
+  onDataRefresh?: () => Promise<any>;
 }
 
 const CategoryTable: React.FC<CategoryTableProps> = ({ 
@@ -17,10 +19,13 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
   onSaveItem,
   onDeleteCategory,
   onDeleteItem,
-  onEditCategory 
+  onEditCategory,
+  onDataRefresh
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentItem, setCurrentItem] = useState<any>(null);
+  const [supplierPopupItem, setSupplierPopupItem] = useState<any>(null);
+  const [supplierPopupVisible, setSupplierPopupVisible] = useState(false);
 
   const handleEdit = (item: any) => {
     setCurrentItem(item);
@@ -139,6 +144,7 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
                 <th style={thStyle}>Price</th>
               )}
               <th style={thStyle}>Visible</th>
+              <th style={thStyle}>Supplier</th>
               <th style={thStyle}>Actions</th>
             </tr>
           </thead>
@@ -191,8 +197,21 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
                     </span>
                   </td>
                   <td style={tdStyle}>
+                    <span style={{ color: '#374151', fontWeight: 600 }}>{item.currentSupplierName || '—'}</span>
+                  </td>
+                  <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => handleEdit(item)} style={editBtnStyle}>Edit</button>
+                      <button 
+                        onClick={() => { setSupplierPopupItem(item); setSupplierPopupVisible(true); }} 
+                        style={{ 
+                          ...editBtnStyle, 
+                          background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
+                          boxShadow: '0 2px 8px rgba(99,102,241,0.15)'
+                        }}
+                      >
+                        Suppliers
+                      </button>
                       {onDeleteItem && (
                         <button 
                           onClick={() => handleDeleteItemClick(item)}
@@ -210,7 +229,12 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
           </tbody>
         </table>
       </div>
-
+      <SupplierPricePopup
+        visible={supplierPopupVisible}
+        onClose={() => setSupplierPopupVisible(false)}
+        item={supplierPopupItem || {}}
+        onAssigned={() => { onDataRefresh && onDataRefresh(); }}
+      />
       <ItemFormModal
         visible={modalVisible}
         onCancel={() => setModalVisible(false)}
@@ -224,12 +248,12 @@ const CategoryTable: React.FC<CategoryTableProps> = ({
 };
 
 const tableContainerStyle: React.CSSProperties = {
-  background: '#fff',
+  background: 'linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)',
   padding: 32,
   borderRadius: 20,
   marginBottom: 36,
-  boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
-  border: '1.5px solid #e0e7ef',
+  boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)',
+  border: '1.5px solid #e5e7eb',
   minWidth: 440,
   maxWidth: 760,
   marginLeft: 'auto',
@@ -278,28 +302,30 @@ const addBtnStyle: React.CSSProperties = {
 };
 
 const editBtnStyle: React.CSSProperties = {
-  padding: '4px 12px',
-  borderRadius: 5,
+  padding: '6px 14px',
+  borderRadius: 6,
   border: 'none',
   background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
   color: '#fff',
   fontWeight: 600,
-  fontSize: 14,
+  fontSize: 13,
   marginRight: 6,
   cursor: 'pointer',
-  transition: 'background 0.2s',
+  transition: 'all 0.2s',
+  boxShadow: '0 2px 8px rgba(16,185,129,0.15)'
 };
 
 const deleteBtnStyle: React.CSSProperties = {
-  padding: '4px 12px',
-  borderRadius: 5,
+  padding: '6px 14px',
+  borderRadius: 6,
   border: 'none',
   background: 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)',
   color: '#fff',
   fontWeight: 600,
-  fontSize: 14,
+  fontSize: 13,
   cursor: 'pointer',
-  transition: 'background 0.2s',
+  transition: 'all 0.2s',
+  boxShadow: '0 2px 8px rgba(239,68,68,0.15)'
 };
 
 // Add hover and animation effects

@@ -4,6 +4,7 @@ import { db } from "./firebase";
 import { collection, CollectionReference, DocumentData, getDocs, addDoc as firebaseAddDoc, doc, deleteDoc, query, where, updateDoc } from "firebase/firestore";
 import { Modal } from "antd";
 import AnalysisPanel from "./components/AnalysisPanel";
+import SupplierAnalytics from "./components/SupplierAnalytics";
 import CategoryTable from "./components/CategoryTable";
 import { useCategoryEditModal } from "./useCategoryEditModal";
 import TableCreationModal from "./components/TableCreationModal";
@@ -18,6 +19,7 @@ function App() {
   const { show: showEditCategoryModal, Modal: EditCategoryModal } = useCategoryEditModal();
   const [categories, setCategories] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [minLoading, setMinLoading] = useState(true);
   const [createModal, setCreateModal] = useState(false);
@@ -77,8 +79,16 @@ function App() {
     return () => clearTimeout(minTimer);
   };
 
+  const fetchSuppliersForAnalytics = async () => {
+    try {
+      const supSnap = await getDocs(collection(db, 'Suppliers'));
+      setSuppliers(supSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error(e); }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchSuppliersForAnalytics();
   }, []);
 
   const groupedItems = categories.reduce<Record<string, any[]>>((acc, cat) => {
@@ -352,7 +362,7 @@ function App() {
           <Content style={{ padding: 20, marginTop: 0 }}>
             {(loading || minLoading) && <LoadingOverlay />}
             {!loading && !minLoading && <>
-              <AnalysisPanel categories={categories} items={items} />
+              <SupplierAnalytics suppliers={suppliers} items={items} categories={categories} />
               <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'center' }}>
                 <Button type="dashed" onClick={() => setCreateModal(true)}>Create New Category</Button>
                 <Button 
@@ -475,6 +485,7 @@ function App() {
                         }
                       });
                     }}
+                    onDataRefresh={fetchData}
                   />
                 ))}
               </div>

@@ -10,6 +10,11 @@ export async function fetchItems() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+export async function fetchSuppliers() {
+  const snap = await getDocs(collection(db, "Suppliers"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 export async function createCategory(category: { name: string; image?: string; visible?: boolean }) {
   return await addDoc(collection(db, "categories"), category);
 }
@@ -27,4 +32,14 @@ export async function createOrUpdateItem(item: any) {
 
 export async function deleteItem(id: string) {
   return await deleteDoc(doc(db, "widelisting", id));
+}
+
+// Assign the chosen supplier to a widelisting item by updating the widelisting doc
+export async function assignSupplierToItem(itemId: string, supplierId: string, supplierName?: string) {
+  const itemRef = doc(db, 'widelisting', itemId);
+  const updates: any = {
+    currentSupplierId: supplierId,
+  };
+  if (supplierName) updates.currentSupplierName = supplierName;
+  return await updateDoc(itemRef, updates);
 }
