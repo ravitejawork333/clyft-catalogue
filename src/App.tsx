@@ -3,6 +3,7 @@ import { Layout, Button } from "antd";
 import { db } from "./firebase";
 import { collection, CollectionReference, DocumentData, getDocs, addDoc as firebaseAddDoc, doc, deleteDoc, query, where, updateDoc } from "firebase/firestore";
 import { Modal } from "antd";
+import * as XLSX from 'xlsx';
 import AnalysisPanel from "./components/AnalysisPanel";
 import SupplierAnalytics from "./components/SupplierAnalytics";
 import CategoryTable from "./components/CategoryTable";
@@ -216,36 +217,275 @@ function App() {
   const executeBackupDownload = async () => {
     setDownloading(true);
     try {
-      // Create backup data with timestamp
+      // Fetch all collections
+      const [usersSnapshot, suppliersSnapshot, ordersSnapshot] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'Suppliers')),
+        getDocs(collection(db, 'orders'))
+      ]);
+
+      // Convert Firestore snapshots to arrays
+      const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const suppliers = suppliersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Create timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const backupData = {
-        categories: categories,
-        widelisting: items,
-        timestamp: new Date().toISOString(),
-        exportedBy: 'Clyft Catalogue Admin',
-        version: '1.0'
+      const downloadTime = new Date().toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+
+      // Helper function to flatten complex objects
+      const flattenObject = (obj: any, prefix = ''): any => {
+        const flattened: any = {};
+        
+        Object.keys(obj).forEach(key => {
+          const value = obj[key];
+          const newKey = prefix ? `${prefix}_${key}` : key;
+          
+          if (value === null || value === undefined) {
+            flattened[newKey] = '';
+          } else if (Array.isArray(value)) {
+            // Convert arrays to JSON string for Excel
+            flattened[newKey] = JSON.stringify(value);
+          } else if (typeof value === 'object' && !(value instanceof Date)) {
+            // Convert nested objects to JSON string
+            flattened[newKey] = JSON.stringify(value);
+          } else {
+            flattened[newKey] = value;
+          }
+        });
+        
+        return flattened;
       };
 
-      // Create and download file
-      const dataStr = JSON.stringify(backupData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `clyft-backup-${timestamp}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Flatten items with their dynamic variants
+      const flattenedItems = items.map(item => {
+        const flat: any = {
+          id: item.id,
+          name: item.name || '',
+          categoryName: item.categoryName || '',
+          categoryId: item.categoryId || '',
+          variantTypes: item.variantTypes || 0,
+          variant1Name: item.variant1Name || '',
+          variant2Name: item.variant2Name || '',
+          variant3Name: item.variant3Name || '',
+          price: item.price || '',
+          marketPrice: item.marketPrice || '',
+          deliveryFee: item.deliveryFee || '',
+          loadingUnloadingFee: item.loadingUnloadingFee || '',
+          currentSupplierId: item.currentSupplierId || '',
+          currentSupplierName: item.currentSupplierName || '',
+          supplierLastUpdated: item.supplierLastUpdated || '',
+          image: item.image || '',
+          visible: item.visible !== undefined ? item.visible : true,
+          createdAt: item.createdAt || '',
+          updatedAt: item.updatedAt || ''
+        };
+        return flat;
+      });
+
+      // Create detailed variant breakdown for items with variants
+      const variantDetails: any[] = [];
+      items.forEach(item => {
+        if (item.variants && Array.isArray(item.variants) && item.variants.length > 0) {
+          item.variants.forEach((variant: any, variantIndex: number) => {
+            // Each variant combination
+            const variantRow: any = {
+              itemId: item.id,
+              itemName: item.name,
+              categoryName: item.categoryName,
+              variantIndex: variantIndex + 1,
+              variantTypes: item.variantTypes || 0
+            };
+
+            // Add variant values dynamically
+            if (item.variant1Name) variantRow.variant1Name = item.variant1Name;
+            if (item.variant2Name) variantRow.variant2Name = item.variant2Name;
+            if (item.variant3Name) variantRow.variant3Name = item.variant3Name;
+            
+            if (variant.values && Array.isArray(variant.values)) {
+              variant.values.forEach((value: string, idx: number) => {
+                variantRow[`variant${idx + 1}Value`] = value || '';
+              });
+            }
+
+            // Add price tiers as JSON (each variant can have multiple tiers)
+            if (variant.priceTiers && Array.isArray(variant.priceTiers)) {
+              variantRow.priceTiersCount = variant.priceTiers.length;
+              variantRow.priceTiers = JSON.stringify(variant.priceTiers);
+            }
+
+            variantDetails.push(variantRow);
+          });
+        }
+      });
+
+      // Create detailed price tier breakdown
+      const priceTierDetails: any[] = [];
+      items.forEach(item => {
+        if (item.variants && Array.isArray(item.variants) && item.variants.length > 0) {
+          item.variants.forEach((variant: any, variantIndex: number) => {
+            if (variant.priceTiers && Array.isArray(variant.priceTiers)) {
+              variant.priceTiers.forEach((tier: any, tierIndex: number) => {
+                const tierRow: any = {
+                  itemId: item.id,
+                  itemName: item.name,
+                  variantIndex: variantIndex + 1,
+                  tierIndex: tierIndex + 1,
+                  minQuantity: tier.min || 0,
+                  maxQuantity: tier.max || 0,
+                  price: tier.price || 0,
+                  marketPrice: tier.marketPrice || 0,
+                  deliveryFee: tier.deliveryFee || 0,
+                  loadingUnloadingFee: tier.loadingUnloadingFee || 0
+                };
+
+                // Add variant values for reference
+                if (variant.values && Array.isArray(variant.values)) {
+                  variant.values.forEach((value: string, idx: number) => {
+                    tierRow[`variant${idx + 1}Value`] = value || '';
+                  });
+                }
+
+                priceTierDetails.push(tierRow);
+              });
+            }
+          });
+        }
+      });
+
+      // Flatten suppliers with their nested prices
+      const flattenedSuppliers = suppliers.map((supplier: any) => {
+        return {
+          id: supplier.id,
+          name: supplier.name || '',
+          contactPerson: supplier.contactPerson || '',
+          email: supplier.email || '',
+          phone: supplier.phone || '',
+          address: supplier.address || '',
+          // Serialize nested prices data
+          prices: supplier.prices ? JSON.stringify(supplier.prices) : ''
+        };
+      });
+
+      // Flatten orders
+      const flattenedOrders = orders.map(order => flattenObject(order));
+
+      // Flatten users
+      const flattenedUsers = users.map(user => flattenObject(user));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+
+      // Create metadata sheet
+      const metadataData = [
+        ['Backup Information', ''],
+        ['Download Date & Time', downloadTime],
+        ['Exported By', 'Clyft Catalogue Admin'],
+        ['Version', '1.0'],
+        ['', ''],
+        ['Collection Statistics', ''],
+        ['Categories', categories.length],
+        ['Items', items.length],
+        ['Item Variants', variantDetails.length],
+        ['Price Tiers', priceTierDetails.length],
+        ['Suppliers', suppliers.length],
+        ['Users', users.length],
+        ['Orders', orders.length],
+        ['', ''],
+        ['Sheet Descriptions', ''],
+        ['Items', 'Main item information (basic fields)'],
+        ['Item Variants', 'Detailed variant combinations for each item'],
+        ['Price Tiers', 'Detailed pricing tiers for each variant'],
+        ['Suppliers', 'Supplier information and pricing data'],
+        ['', ''],
+        ['Important Notes', ''],
+        ['Note', 'Items with no variants will not appear in Variants/PriceTiers sheets'],
+        ['Note', 'Supplier prices are stored as JSON for complex structures'],
+        ['Note', 'To restore data, use Firestore import tools']
+      ];
+      const metadataSheet = XLSX.utils.aoa_to_sheet(metadataData);
+      XLSX.utils.book_append_sheet(wb, metadataSheet, 'Metadata');
+
+      // Create Categories sheet
+      if (categories.length > 0) {
+        const categoriesSheet = XLSX.utils.json_to_sheet(categories);
+        XLSX.utils.book_append_sheet(wb, categoriesSheet, 'Categories');
+      }
+
+      // Create Items sheet with flattened data
+      if (flattenedItems.length > 0) {
+        const itemsSheet = XLSX.utils.json_to_sheet(flattenedItems);
+        XLSX.utils.book_append_sheet(wb, itemsSheet, 'Items');
+      }
+
+      // Create Item Variants sheet (detailed variant combinations)
+      if (variantDetails.length > 0) {
+        const variantsSheet = XLSX.utils.json_to_sheet(variantDetails);
+        XLSX.utils.book_append_sheet(wb, variantsSheet, 'Item Variants');
+      }
+
+      // Create Price Tiers sheet (detailed pricing for each variant)
+      if (priceTierDetails.length > 0) {
+        const tiersSheet = XLSX.utils.json_to_sheet(priceTierDetails);
+        XLSX.utils.book_append_sheet(wb, tiersSheet, 'Price Tiers');
+      }
+
+      // Create Suppliers sheet with flattened data
+      if (flattenedSuppliers.length > 0) {
+        const suppliersSheet = XLSX.utils.json_to_sheet(flattenedSuppliers);
+        XLSX.utils.book_append_sheet(wb, suppliersSheet, 'Suppliers');
+      }
+
+      // Create Users sheet
+      if (flattenedUsers.length > 0) {
+        const usersSheet = XLSX.utils.json_to_sheet(flattenedUsers);
+        XLSX.utils.book_append_sheet(wb, usersSheet, 'Users');
+      }
+
+      // Create Orders sheet
+      if (flattenedOrders.length > 0) {
+        const ordersSheet = XLSX.utils.json_to_sheet(flattenedOrders);
+        XLSX.utils.book_append_sheet(wb, ordersSheet, 'Orders');
+      }
+
+      // Generate Excel file
+      XLSX.writeFile(wb, `clyft-backup-${timestamp}.xlsx`);
 
       setShowBackupConfirm(false);
       
       // Show success message
       Modal.success({
         title: 'Backup Downloaded',
-        content: `Backup file "clyft-backup-${timestamp}.json" has been downloaded successfully!`,
-        centered: true
+        content: (
+          <div>
+            <p><strong>Excel backup created successfully!</strong></p>
+            <p>File: clyft-backup-{timestamp}.xlsx</p>
+            <p style={{ marginTop: '10px', fontSize: '12px' }}>
+              Included sheets:<br/>
+              • Metadata (download info & statistics)<br/>
+              • Categories ({categories.length} records)<br/>
+              • Items ({items.length} records - basic info)<br/>
+              {variantDetails.length > 0 && `• Item Variants (${variantDetails.length} variant combinations)\n`}
+              {priceTierDetails.length > 0 && `• Price Tiers (${priceTierDetails.length} pricing tiers)\n`}
+              • Suppliers ({suppliers.length} records)<br/>
+              • Users ({users.length} records)<br/>
+              • Orders ({orders.length} records)
+            </p>
+            <p style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+              Note: Items with variants are expanded into separate sheets for detailed analysis
+            </p>
+          </div>
+        ),
+        centered: true,
+        width: 550
       });
     } catch (error) {
       console.error('Error creating backup:', error);
